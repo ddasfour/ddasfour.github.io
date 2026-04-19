@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BuiltInTheGap — IAM & Identity Security</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e0a;
+    --bg2: #0f140f;
+    --bg3: #141a14;
+    --green: #39ff6e;
+    --green-dim: #1a7a35;
+    --green-glow: rgba(57,255,110,0.15);
+    --amber: #ffb347;
+    --red: #ff4444;
+    --text: #c8dfc8;
+    --text-dim: #5a7a5a;
+    --border: #1e2e1e;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* Noise texture */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.4;
+  }
+
+  /* NAV */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    background: rgba(10,14,10,0.92);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+  }
+
+  .nav-logo {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 1rem;
+    color: var(--green);
+    letter-spacing: -0.02em;
+    text-decoration: none;
+  }
+
+  .nav-logo span { color: var(--text-dim); }
+
+  .nav-links {
+    display: flex;
+    gap: 2rem;
+    list-style: none;
+  }
+
+  .nav-links a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover { color: var(--green); }
+
+  .nav-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--green);
+  }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* HERO */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 6rem 2rem 4rem;
+    max-width: 900px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .hero-tag {
+    font-size: 11px;
+    color: var(--green-dim);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.2s;
+  }
+
+  .hero-tag::before { content: '> '; color: var(--green); }
+
+  .hero-name {
+    font-family: var(--sans);
+    font-size: clamp(2.8rem, 7vw, 5.5rem);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: #fff;
+    margin-bottom: 0.5rem;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.4s;
+  }
+
+  .hero-name .accent { color: var(--green); }
+
+  .hero-title {
+    font-family: var(--sans);
+    font-size: clamp(1rem, 2.5vw, 1.4rem);
+    font-weight: 400;
+    color: var(--text-dim);
+    margin-bottom: 2.5rem;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.6s;
+  }
+
+  .hero-bio {
+    max-width: 580px;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.9;
+    margin-bottom: 3rem;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.8s;
+    border-left: 2px solid var(--green-dim);
+    padding-left: 1.5rem;
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 3rem;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 1s;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .stat-num {
+    font-family: var(--sans);
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--green);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .hero-cta {
+    display: flex;
+    gap: 1rem;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 1.2s;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 22px;
+    font-family: var(--mono);
+    font-size: 13px;
+    text-decoration: none;
+    border-radius: 2px;
+    transition: all 0.2s;
+    cursor: pointer;
+    border: none;
+  }
+
+  .btn-primary {
+    background: var(--green);
+    color: var(--bg);
+    font-weight: 700;
+  }
+
+  .btn-primary:hover {
+    background: #fff;
+    box-shadow: 0 0 24px var(--green-glow);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-ghost:hover {
+    border-color: var(--green-dim);
+    color: var(--green);
+  }
+
+  /* Terminal prompt decoration */
+  .hero-prompt {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    display: none;
+  }
+
+  @media (min-width: 900px) {
+    .hero-prompt { display: block; }
+  }
+
+  /* SECTIONS */
+  section {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 5rem 2rem;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 3rem;
+  }
+
+  .section-label {
+    font-size: 11px;
+    color: var(--green);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .section-label::before { content: '// '; }
+
+  .section-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* TIMELINE */
+  .timeline {
+    position: relative;
+    padding-left: 1.5rem;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 8px; bottom: 0;
+    width: 1px;
+    background: linear-gradient(to bottom, var(--green-dim), transparent);
+  }
+
+  .timeline-month {
+    position: relative;
+    margin-bottom: 2.5rem;
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: all 0.5s ease;
+  }
+
+  .timeline-month.visible {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .timeline-month::before {
+    content: '';
+    position: absolute;
+    left: -1.5rem;
+    top: 8px;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 1px solid var(--green-dim);
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  .timeline-month:hover::before {
+    background: var(--green);
+    border-color: var(--green);
+    box-shadow: 0 0 8px var(--green);
+  }
+
+  .timeline-date {
+    font-size: 11px;
+    color: var(--green-dim);
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+
+  .timeline-content {
+    color: var(--text);
+  }
+
+  .timeline-content strong {
+    color: #fff;
+    font-weight: 500;
+  }
+
+  .timeline-tag {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 2px;
+    margin-left: 8px;
+    vertical-align: middle;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .tag-lab { background: rgba(57,255,110,0.12); color: var(--green); border: 1px solid rgba(57,255,110,0.25); }
+  .tag-learn { background: rgba(255,179,71,0.1); color: var(--amber); border: 1px solid rgba(255,179,71,0.2); }
+  .tag-cert { background: rgba(100,160,255,0.1); color: #64a0ff; border: 1px solid rgba(100,160,255,0.2); }
+
+  /* LABS */
+  .labs-grid {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  .lab-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2rem;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s ease, transform 0.5s ease, border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .lab-card.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .lab-card:hover {
+    border-color: var(--green-dim);
+    box-shadow: 0 0 32px rgba(57,255,110,0.05);
+  }
+
+  .lab-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--green), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .lab-card:hover::before { opacity: 1; }
+
+  .lab-number {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    margin-bottom: 0.75rem;
+  }
+
+  .lab-title {
+    font-family: var(--sans);
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 0.75rem;
+    line-height: 1.3;
+  }
+
+  .lab-desc {
+    color: var(--text);
+    margin-bottom: 1.5rem;
+    line-height: 1.8;
+    font-size: 13px;
+  }
+
+  .lab-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: var(--bg3);
+    border-radius: 2px;
+    font-size: 12px;
+  }
+
+  .lab-meta-item { display: flex; flex-direction: column; gap: 2px; }
+  .lab-meta-key { color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .lab-meta-val { color: var(--green); }
+
+  .lab-broke {
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 0.75rem 1rem;
+    border-left: 2px solid var(--red);
+    margin-bottom: 1.5rem;
+    background: rgba(255,68,68,0.04);
+  }
+
+  .lab-broke strong { color: var(--red); }
+
+  .lab-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 1.25rem;
+  }
+
+  .tech-tag {
+    font-size: 10px;
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+  }
+
+  .lab-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--green);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+  }
+
+  .lab-link:hover { border-color: var(--green); }
+
+  /* SKILLS */
+  .skills-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+
+  .skill-group {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.5rem;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+
+  .skill-group.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .skill-group-title {
+    font-size: 11px;
+    color: var(--green);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .skill-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 12px;
+    border-bottom: 1px solid rgba(30,46,30,0.5);
+  }
+
+  .skill-item:last-child { border-bottom: none; }
+
+  .skill-name { color: var(--text); }
+
+  .skill-evidence {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: right;
+  }
+
+  /* CONTACT */
+  .contact-block {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .contact-block::before {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(circle at center, rgba(57,255,110,0.04) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .contact-heading {
+    font-family: var(--sans);
+    font-size: 2rem;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 0.75rem;
+  }
+
+  .contact-sub {
+    color: var(--text-dim);
+    margin-bottom: 2rem;
+    font-size: 13px;
+  }
+
+  .contact-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--border);
+    text-align: center;
+    padding: 2rem;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  footer .green { color: var(--green); }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  .cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: var(--green);
+    vertical-align: text-bottom;
+    animation: blink 1s step-end infinite;
+    margin-left: 2px;
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--green-dim); border-radius: 2px; }
+
+  /* MOBILE */
+  @media (max-width: 640px) {
+    .nav-links { display: none; }
+    .lab-meta { grid-template-columns: 1fr; }
+    .hero-stats { gap: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">Built<span>In</span>TheGap<span class="cursor"></span></a>
+  <ul class="nav-links">
+    <li><a href="#timeline">Timeline</a></li>
+    <li><a href="#labs">Labs</a></li>
+    <li><a href="#skills">Skills</a></li>
+    <li><a href="#contact">Contact</a></li>
+  </ul>
+  <div class="nav-status">
+    <div class="status-dot"></div>
+    open to work
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-tag">IAM &amp; Identity Security Engineer</div>
+  <h1 class="hero-name">Built<span class="accent">In</span><br>TheGap.</h1>
+  <p class="hero-title">9 months. 3 labs. Real incidents. Real runbooks.</p>
+  <p class="hero-bio">
+    I didn't wait to be job-ready. I used the gap to build — going deep on Microsoft Entra ID, OIDC authentication flows, Python test automation, and PowerShell IAM tooling. Every lab is documented, every break is explained, every fix is on GitHub.
+  </p>
+  <div class="hero-stats">
+    <div class="stat">
+      <span class="stat-num">3</span>
+      <span class="stat-label">Labs Built</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">52+</span>
+      <span class="stat-label">Tests Written</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">9</span>
+      <span class="stat-label">Months Deep</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">0</span>
+      <span class="stat-label">Guided Walkthroughs</span>
+    </div>
+  </div>
+  <div class="hero-cta">
+    <a href="#labs" class="btn btn-primary">↓ View Labs</a>
+    <a href="https://github.com/ddasfour" target="_blank" class="btn btn-ghost">⌥ GitHub</a>
+    <a href="#contact" class="btn btn-ghost">→ Hire Me</a>
+  </div>
+</div>
+
+<!-- TIMELINE -->
+<section id="timeline">
+  <div class="section-header">
+    <span class="section-label">Timeline</span>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-month">
+      <div class="timeline-date">Jul 2025</div>
+      <div class="timeline-content">Began studying Microsoft Entra ID and IAM fundamentals. No shortcuts, no guided labs. <span class="timeline-tag tag-learn">Learning</span></div>
+    </div>
+    <div class="timeline-month">
+      <div class="timeline-date">Aug 2025</div>
+      <div class="timeline-content">Deep-dive into OIDC authentication flows, OAuth 2.0, and identity protocols. Configured first app registrations in Entra ID. <span class="timeline-tag tag-learn">Learning</span></div>
+    </div>
+    <div class="timeline-month">
+      <div class="timeline-date">Sep 2025</div>
+      <div class="timeline-content">Started building Lab 1 — OIDC onboarding end-to-end. Broke it twice. Documented both incidents as runbooks. <span class="timeline-tag tag-lab">Lab 1</span></div>
+    </div>
+    <div class="timeline-month">
+      <div class="timeline-date">Oct 2025</div>
+      <div class="timeline-content">Completed PowerShell fundamentals. Built IAM security audit tool — stale account detection, CSV export, joiner/mover/leaver process. Pushed to GitHub. <span class="timeline-tag tag-lab">Lab 2</span></div>
+    </div>
+    <div class="timeline-month">
+      <div class="timeline-date">Nov – Dec 2025</div>
+      <div class="timeline-content">Studied Python, pytest, and API testing methodology. Studied token security and JWT validation patterns. <span class="timeline-tag tag-learn">Learning</span></div>
+    </div>
+    <div class="timeline-month">
+      <div class="timeline-date">Jan 2026</div>
+      <div class="timeline-content">Built Python API testing framework from scratch — 23 tests, one command, instant results. First real automation project. <span class="timeline-tag tag-lab">Lab 3</span></div>
+    </div>
+    <div class="timeline-month">
+      <div class="timeline-date">Feb – Mar 2026</div>
+      <div class="timeline-content">Applied pytest skills to a real enterprise target — Microsoft Entra ID OIDC app registration. Discovered real-world token validation behaviour undocumented in most tutorials. <span class="timeline-tag tag-learn">Research</span></div>
+    </div>
+    <div class="timeline-month">
+      <div class="timeline-date">Apr 2026</div>
+      <div class="timeline-content"><strong>Built Entra ID OIDC Token Test Framework</strong> — 29 tests against a live enterprise identity platform. Every test run visible in Entra ID sign-in logs. <span class="timeline-tag tag-lab">Lab 4</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- LABS -->
+<section id="labs">
+  <div class="section-header">
+    <span class="section-label">Labs</span>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="labs-grid">
+
+    <!-- LAB 1 -->
+    <div class="lab-card">
+      <div class="lab-number">lab_01 / identity</div>
+      <h3 class="lab-title">Microsoft Entra ID — OIDC Onboarding End-to-End</h3>
+      <p class="lab-desc">
+        Configured OIDC authentication from scratch in Microsoft Entra ID. Hit real-world errors most tutorials skip. Documented every incident as a proper runbook — the way a Security Engineer would in production.
+      </p>
+      <div class="lab-meta">
+        <div class="lab-meta-item">
+          <span class="lab-meta-key">Platform</span>
+          <span class="lab-meta-val">Microsoft Entra ID</span>
+        </div>
+        <div class="lab-meta-item">
+          <span class="lab-meta-key">Protocol</span>
+          <span class="lab-meta-val">OIDC / OAuth 2.0</span>
+        </div>
+        <div class="lab-meta-item">
+          <span class="lab-meta-key">Incidents</span>
+          <span class="lab-meta-val">2 documented</span>
+        </div>
+        <div class="lab-meta-item">
+          <span class="lab-meta-key">Output</span>
+          <span class="lab-meta-val">Runbooks written</span>
+        </div>
+      </div>
+      <div class="lab-broke">
+        <strong>What broke:</strong> Misconfigured redirect URI caused silent token rejection. Wrong token audience claim caused 401 loops. Both fixed, both documented.
+      </div>
+      <div class="lab-tags">
+        <span class="tech-tag">Entra ID</span>
+        <span class="tech-tag">OIDC</span>
+        <span class="tech-tag">OAuth 2.0</span>
+        <span class="tech-tag">JWT</span>
+        <span class="tech-tag">App Registration</span>
+        <span class="tech-tag">Runbooks</span>
+      </div>
+    </div>
+
+    <!-- LAB 2 -->
+    <div class="lab-card">
+      <div class="lab-number">lab_02 / powershell</div>
+      <h3 class="lab-title">PowerShell IAM Security Audit Tool</h3>
+      <p class="lab-desc">
+        Built a PowerShell tool that detects stale user accounts — a core task in any security team's leaver process. Exports timestamped CSV reports for access reviews. Mirrors the joiner/mover/leaver process used in regulated environments.
+      </p>
+      <div class="lab-meta">
+        <div class="lab-meta-item">
+          <span class="lab-meta-key">Language</span>
+          <span class="lab-meta-val">PowerShell</span>
+        </div>
+        <div class="lab-meta-item">
+          <span class="lab-meta-key">Output</span>
+          <span class="lab-meta-val">CSV audit reports</span>
+        </div>
+        <div class="lab-meta-item">
+          <span class="lab-meta-key">Detection</span>
+          <span class="lab-meta-val">90+ day inactivity</span>
+        </div>
+        <div class="lab-meta-item">
+          <span class="lab-meta-key">Process</span>
+          <span class="lab-meta-val">JML lifecycle</span>
+        </div>
+      </div>
+      <div class="lab-broke">
+        <strong>What broke:</strong> Execution policy errors blocked initial runs. Date comparison bug produced false positives. Git merge conflict during first push — resolved in Vim having never opened it before.
+      </div>
+      <div class="lab-tags">
+        <span class="tech-tag">PowerShell</span>
+        <span class="tech-tag">IAM</span>
+        <span class="tech-tag">Access Reviews</span>
+        <span class="tech-tag">CSV Reporting</span>
+        <span class="tech-tag">Git</span>
+      </div>
+      <a href="https://github.com/ddasfour/inactive-user-audit" target="_blank" class="lab-link">↗ github.com/ddasfour/inactive-user-audit</a>
+    </div>
+
+    <!-- LAB 3 -->
+    <div class="lab-card">
+      <div class="lab-number">lab_03 / automation</div>
+      <h3 class="lab-title">Python API Testing Framework — 23 Tests, One Command</h3>
+      <p class="lab-desc">
+        Built a Python pytest framework from scratch to test public APIs. 23 tests covering status codes, response structure, authentication, error handling, and edge cases. One command to run everything. Zero external dependencies beyond pytest.
+      </p>
+      <div class="lab-meta">
+        <div class="lab-meta-item">
+          <span class="lab-meta-key">Language</span>
+          <span class="lab-meta-val">Python</span>
+        </div>
+        <div class="lab-meta-item">
+          <span class="lab-meta-key">Framework</span>
+          <span class="lab-meta-val">pytest</span>
+        </div>
+        <div class="lab-meta-item">
+          <span class="lab-meta-key">Tests</span>
+          <span class="lab-meta-val">23 passing</span>
+        </div>
+        <div class="lab-meta-item">
+          <span class="lab-meta-key">Command</span>
+          <span class="lab-meta-val">pytest .</span>
+        </div>
+      </div>
+      <div class="lab-broke">
+        <strong>What broke:</strong> Incorrect assertion on paginated responses — tests passed on first page, silently missed edge cases on subsequent pages. Fixed by adding explicit boundary tests.
+      </div>
+      <div class="lab-tags">
+        <span class="tech-tag">Python</span>
+        <span class="tech-tag">pytest</span>
+        <span class="tech-tag">REST APIs</span>
+        <span class="tech-tag">Test Automation</span>
+        <span class="tech-tag">CI-ready</span>
+      </div>
+    </div>
+
+    <!-- LAB 4 -->
+    <div class="lab-card">
+      <div class="lab-number">lab_04 / enterprise-identity</div>
+      <h3 class="lab-title">Entra ID OIDC Token Test Framework — 29 Tests, Live Enterprise Target</h3>
+      <p class="lab-desc">
+        Applied pytest skills from Lab 3 to a real enterprise target — a live Microsoft Entra ID OIDC app registration. Every test run is visible in real-time in Entra ID sign-in logs. Discovered undocumented behaviour in redirect URI validation.
+      </p>
+      <div class="lab-meta">
+        <div class="lab-meta-item">
+          <span class="lab-meta-key">Target</span>
+          <span class="lab-meta-val">Live Entra ID tenant</span>
+        </div>
+        <div class="lab-meta-item">
+          <span class="lab-meta-key">Tests</span>
+          <span class="lab-meta-val">29 passing</span>
+        </div>
+        <div class="lab-meta-item">
+          <span class="lab-meta-key">Token flow</span>
+          <span class="lab-meta-val">MSAL client creds</span>
+        </div>
+        <div class="lab-meta-item">
+          <span class="lab-meta-key">Monitoring</span>
+          <span class="lab-meta-val">Entra sign-in logs</span>
+        </div>
+      </div>
+      <div class="lab-broke">
+        <strong>Discovery:</strong> Entra ID doesn't reject an unregistered redirect URI immediately — it shows the login page first and only blocks post-authentication. Critical behaviour for SSO integration teams to know.
+      </div>
+      <div class="lab-tags">
+        <span class="tech-tag">Python</span>
+        <span class="tech-tag">pytest</span>
+        <span class="tech-tag">Entra ID</span>
+        <span class="tech-tag">OIDC</span>
+        <span class="tech-tag">MSAL</span>
+        <span class="tech-tag">JWT</span>
+        <span class="tech-tag">Sign-in Logs</span>
+      </div>
+      <a href="https://github.com/ddasfour/entra-oidc-token-test-framework" target="_blank" class="lab-link">↗ github.com/ddasfour/entra-oidc-token-test-framework</a>
+    </div>
+
+  </div>
+</section>
+
+<!-- SKILLS -->
+<section id="skills">
+  <div class="section-header">
+    <span class="section-label">Skills — Earned, Not Listed</span>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="skills-grid">
+    <div class="skill-group">
+      <div class="skill-group-title">Identity & IAM</div>
+      <div class="skill-item">
+        <span class="skill-name">Microsoft Entra ID</span>
+        <span class="skill-evidence">Labs 1, 4</span>
+      </div>
+      <div class="skill-item">
+        <span class="skill-name">OIDC / OAuth 2.0</span>
+        <span class="skill-evidence">Labs 1, 4</span>
+      </div>
+      <div class="skill-item">
+        <span class="skill-name">JWT token validation</span>
+        <span class="skill-evidence">Lab 4</span>
+      </div>
+      <div class="skill-item">
+        <span class="skill-name">App registrations</span>
+        <span class="skill-evidence">Lab 1</span>
+      </div>
+      <div class="skill-item">
+        <span class="skill-name">Joiner/Mover/Leaver</span>
+        <span class="skill-evidence">Lab 2</span>
+      </div>
+      <div class="skill-item">
+        <span class="skill-name">Access reviews</span>
+        <span class="skill-evidence">Lab 2</span>
+      </div>
+    </div>
+
+    <div class="skill-group">
+      <div class="skill-group-title">Scripting & Automation</div>
+      <div class="skill-item">
+        <span class="skill-name">Python</span>
+        <span class="skill-evidence">Labs 3, 4</span>
+      </div>
+      <div class="skill-item">
+        <span class="skill-name">pytest framework</span>
+        <span class="skill-evidence">Labs 3, 4</span>
+      </div>
+      <div class="skill-item">
+        <span class="skill-name">MSAL (Python)</span>
+        <span class="skill-evidence">Lab 4</span>
+      </div>
+      <div class="skill-item">
+        <span class="skill-name">PowerShell</span>
+        <span class="skill-evidence">Lab 2</span>
+      </div>
+      <div class="skill-item">
+        <span class="skill-name">REST API testing</span>
+        <span class="skill-evidence">Labs 3, 4</span>
+      </div>
+    </div>
+
+    <div class="skill-group">
+      <div class="skill-group-title">Security Engineering</div>
+      <div class="skill-item">
+        <span class="skill-name">Incident documentation</span>
+        <span class="skill-evidence">Lab 1</span>
+      </div>
+      <div class="skill-item">
+        <span class="skill-name">Runbook writing</span>
+        <span class="skill-evidence">Lab 1</span>
+      </div>
+      <div class="skill-item">
+        <span class="skill-name">Token security testing</span>
+        <span class="skill-evidence">Lab 4</span>
+      </div>
+      <div class="skill-item">
+        <span class="skill-name">Sign-in log analysis</span>
+        <span class="skill-evidence">Lab 4</span>
+      </div>
+      <div class="skill-item">
+        <span class="skill-name">Stale account detection</span>
+        <span class="skill-evidence">Lab 2</span>
+      </div>
+    </div>
+
+    <div class="skill-group">
+      <div class="skill-group-title">Dev Practices</div>
+      <div class="skill-item">
+        <span class="skill-name">Git version control</span>
+        <span class="skill-evidence">All labs</span>
+      </div>
+      <div class="skill-item">
+        <span class="skill-name">GitHub</span>
+        <span class="skill-evidence">All labs</span>
+      </div>
+      <div class="skill-item">
+        <span class="skill-name">Merge conflict resolution</span>
+        <span class="skill-evidence">Lab 2</span>
+      </div>
+      <div class="skill-item">
+        <span class="skill-name">Test-driven mindset</span>
+        <span class="skill-evidence">Labs 3, 4</span>
+      </div>
+      <div class="skill-item">
+        <span class="skill-name">Technical documentation</span>
+        <span class="skill-evidence">All labs</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact">
+  <div class="contact-block">
+    <h2 class="contact-heading">Open to Work</h2>
+    <p class="contact-sub">
+      Targeting roles in IAM, Identity Security, or Security Engineering.<br>
+      Based in the UK. Available immediately.
+    </p>
+    <div class="contact-links">
+      <a href="https://www.linkedin.com/in/ddasfour" target="_blank" class="btn btn-primary">LinkedIn →</a>
+      <a href="https://github.com/ddasfour" target="_blank" class="btn btn-ghost">GitHub ↗</a>
+      <a href="mailto:your@email.com" class="btn btn-ghost">Email →</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>Built in the gap. <span class="green">No guided walkthroughs. No shortcuts.</span> Just real broken things, fixed one error at a time.</p>
+</footer>
+
+<script>
+  // Intersection observer for scroll animations
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) {
+        setTimeout(() => {
+          entry.target.classList.add('visible');
+        }, entry.target.dataset.delay || 0);
+      }
+    });
+  }, { threshold: 0.1 });
+
+  // Timeline items
+  document.querySelectorAll('.timeline-month').forEach((el, i) => {
+    el.dataset.delay = i * 80;
+    observer.observe(el);
+  });
+
+  // Lab cards
+  document.querySelectorAll('.lab-card').forEach((el, i) => {
+    el.dataset.delay = i * 100;
+    observer.observe(el);
+  });
+
+  // Skill groups
+  document.querySelectorAll('.skill-group').forEach((el, i) => {
+    el.dataset.delay = i * 80;
+    observer.observe(el);
+  });
+
+  // Typewriter effect on hero tag
+  const tag = document.querySelector('.hero-tag');
+  const text = 'IAM & Identity Security Engineer';
+  tag.textContent = '';
+  tag.style.opacity = '1';
+  tag.style.animation = 'none';
+
+  let i = 0;
+  const type = () => {
+    if (i < text.length) {
+      tag.textContent += text[i];
+      i++;
+      setTimeout(type, 40);
+    }
+  };
+
+  setTimeout(type, 400);
+</script>
+</body>
+</html>
